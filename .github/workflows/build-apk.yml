@@ -11,10 +11,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
@@ -23,7 +23,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Scaffold Complete Android Project
+      - name: Scaffold Project and Fix Gradle
         run: |
           # 1. Create a clean Flutter project structure
           flutter create --org com.starkindustries temp_project
@@ -33,7 +33,7 @@ jobs:
           cp main.dart temp_project/lib/main.dart
           cp AndroidManifest.xml temp_project/android/app/src/main/AndroidManifest.xml
           
-          # 3. Create required accessibility config to prevent manifest error
+          # 3. Create required accessibility config
           mkdir -p temp_project/android/app/src/main/res/xml
           cat << 'EOF' > temp_project/android/app/src/main/res/xml/accessibility_service_config.xml
           <?xml version="1.0" encoding="utf-8"?>
@@ -45,18 +45,23 @@ jobs:
               android:canPerformGestures="true"
               android:notificationTimeout="100" />
           EOF
-          
-          # 4. Ensure minSdk is at least 21 for audio and accessibility plugins
-          sed -i 's/minSdkVersion = flutter.minSdkVersion/minSdkVersion = 21/g' temp_project/android/app/build.gradle || true
-          sed -i 's/minSdk = flutter.minSdk/minSdk = 21/g' temp_project/android/app/build.gradle || true
 
-      - name: Install Dependencies
+          # 4. Enforce minSdk 23 for speech/audio plugins across both Groovy and Kotlin DSL
+          if [ -f temp_project/android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion.*/minSdkVersion = 23/g' temp_project/android/app/build.gradle
+            sed -i 's/minSdk = flutter.minSdk/minSdk = 23/g' temp_project/android/app/build.gradle
+          fi
+          if [ -f temp_project/android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = .*/minSdk = 23/g' temp_project/android/app/build.gradle.kts
+          fi
+
+      - name: Get Dependencies
         working-directory: temp_project
         run: flutter pub get
 
-      - name: Build Release APK
+      - name: Build APK (Verbose)
         working-directory: temp_project
-        run: flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons -v
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
