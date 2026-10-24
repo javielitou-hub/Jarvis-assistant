@@ -63,8 +63,8 @@ jobs:
           # 5. Enforce SDK targets
           find temp_project/android/app -name "build.gradle*" -exec sed -i 's/minSdkVersion.*/minSdkVersion = 24/g' {} +
           find temp_project/android/app -name "build.gradle*" -exec sed -i 's/minSdk = .*/minSdk = 24/g' {} +
-          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdk = .*/compileSdk = 34/g' {} +
-          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdkVersion.*/compileSdkVersion = 34/g' {} +
+          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdk = .*/compileSdk = 36/g' {} +
+          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdkVersion.*/compileSdkVersion = 36/g' {} +
 
       - name: Get Dependencies
         working-directory: temp_project
