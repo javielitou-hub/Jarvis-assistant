@@ -1,0 +1,65 @@
+name: Build Jarvis APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Scaffold Complete Android Project
+        run: |
+          # 1. Create a clean Flutter project structure
+          flutter create --org com.starkindustries temp_project
+          
+          # 2. Inject your custom code and configurations
+          cp pubspec.yaml temp_project/pubspec.yaml
+          cp main.dart temp_project/lib/main.dart
+          cp AndroidManifest.xml temp_project/android/app/src/main/AndroidManifest.xml
+          
+          # 3. Create required accessibility config to prevent manifest error
+          mkdir -p temp_project/android/app/src/main/res/xml
+          cat << 'EOF' > temp_project/android/app/src/main/res/xml/accessibility_service_config.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+              android:accessibilityEventTypes="typeAllMask"
+              android:accessibilityFeedbackType="feedbackGeneric"
+              android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
+              android:canRetrieveWindowContent="true"
+              android:canPerformGestures="true"
+              android:notificationTimeout="100" />
+          EOF
+          
+          # 4. Ensure minSdk is at least 21 for audio and accessibility plugins
+          sed -i 's/minSdkVersion = flutter.minSdkVersion/minSdkVersion = 21/g' temp_project/android/app/build.gradle || true
+          sed -i 's/minSdk = flutter.minSdk/minSdk = 21/g' temp_project/android/app/build.gradle || true
+
+      - name: Install Dependencies
+        working-directory: temp_project
+        run: flutter pub get
+
+      - name: Build Release APK
+        working-directory: temp_project
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-release-apk
+          path: temp_project/build/app/outputs/flutter-apk/app-release.apk
