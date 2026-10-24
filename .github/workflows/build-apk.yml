@@ -23,17 +23,17 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Scaffold Project and Fix Gradle
+      - name: Scaffold Project and Fix Android Native Code
         run: |
-          # 1. Create a clean Flutter project structure
+          # 1. Scaffold project
           flutter create --org com.starkindustries temp_project
           
-          # 2. Inject your custom code and configurations
+          # 2. Copy source files
           cp pubspec.yaml temp_project/pubspec.yaml
           cp main.dart temp_project/lib/main.dart
           cp AndroidManifest.xml temp_project/android/app/src/main/AndroidManifest.xml
-          
-          # 3. Create required accessibility config
+
+          # 3. Create accessibility service XML config
           mkdir -p temp_project/android/app/src/main/res/xml
           cat << 'EOF' > temp_project/android/app/src/main/res/xml/accessibility_service_config.xml
           <?xml version="1.0" encoding="utf-8"?>
@@ -46,22 +46,33 @@ jobs:
               android:notificationTimeout="100" />
           EOF
 
-          # 4. Enforce minSdk 23 for speech/audio plugins across both Groovy and Kotlin DSL
-          if [ -f temp_project/android/app/build.gradle ]; then
-            sed -i 's/minSdkVersion.*/minSdkVersion = 23/g' temp_project/android/app/build.gradle
-            sed -i 's/minSdk = flutter.minSdk/minSdk = 23/g' temp_project/android/app/build.gradle
-          fi
-          if [ -f temp_project/android/app/build.gradle.kts ]; then
-            sed -i 's/minSdk = .*/minSdk = 23/g' temp_project/android/app/build.gradle.kts
-          fi
+          # 4. Create the missing JarvisAccessibilityService Kotlin class
+          mkdir -p temp_project/android/app/src/main/kotlin/com/starkindustries/jarvis
+          cat << 'EOF' > temp_project/android/app/src/main/kotlin/com/starkindustries/jarvis/JarvisAccessibilityService.kt
+          package com.starkindustries.jarvis
+
+          import android.accessibilityservice.AccessibilityService
+          import android.view.accessibility.AccessibilityEvent
+
+          class JarvisAccessibilityService : AccessibilityService() {
+              override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+              override fun onInterrupt() {}
+          }
+          EOF
+
+          # 5. Enforce compileSdk 34 and minSdk 24
+          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/minSdkVersion.*/minSdkVersion = 24/g' {} +
+          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/minSdk = .*/minSdk = 24/g' {} +
+          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdk = .*/compileSdk = 34/g' {} +
+          find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdkVersion.*/compileSdkVersion = 34/g' {} +
 
       - name: Get Dependencies
         working-directory: temp_project
         run: flutter pub get
 
-      - name: Build APK (Verbose)
+      - name: Build Release APK
         working-directory: temp_project
-        run: flutter build apk --release --no-tree-shake-icons -v
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
