@@ -60,7 +60,7 @@ jobs:
           }
           EOF
 
-          # 5. Enforce compileSdk 34 and minSdk 24
+          # 5. Enforce SDK targets
           find temp_project/android/app -name "build.gradle*" -exec sed -i 's/minSdkVersion.*/minSdkVersion = 24/g' {} +
           find temp_project/android/app -name "build.gradle*" -exec sed -i 's/minSdk = .*/minSdk = 24/g' {} +
           find temp_project/android/app -name "build.gradle*" -exec sed -i 's/compileSdk = .*/compileSdk = 34/g' {} +
@@ -68,7 +68,10 @@ jobs:
 
       - name: Get Dependencies
         working-directory: temp_project
-        run: flutter pub get
+        run: |
+          flutter pub get
+          # Strip deprecated jcenter from cached Gradle configs if present
+          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} + 2>/dev/null || true
 
       - name: Build Release APK
         working-directory: temp_project
